@@ -122,3 +122,23 @@ curl -X POST http://localhost:5678/webhook/wb-reviews-demo
 ## Лицензия
 
 MIT — см. [LICENSE](LICENSE).
+
+
+---
+
+# WB Review Responder — действие с контролем (human-in-the-loop)
+
+Второй кейс на том же ядре: не «прочитал и проанализировал», а **«предложил → подтвердил → опубликовал»**.
+
+**Пайплайн** (два workflow):
+
+1. **WB Review Responder** (11 узлов): Webhook → HTTP feedbacks API → фильтр 50 отзывов с текстом → промпты («вежливый представитель бренда») → Polza (deepseek-v4-flash, temp 0.3) → связка черновик↔отзыв → CSV → approval-запрос → End
+2. **WB Responder Confirm** (7 узлов): Webhook {answer, csv} → проверка «да» (Code-чекер, не хрупкий IF) → dry/real ветка → лог CSV → итог
+
+**Confirm-гейт на трёх уровнях**: LLM не публикует сам; пользователь даёт явное «да»; в реальной ветке — WB seller API с токеном только из `{{ $env.WB_API_TOKEN }}` (rate limit: батчи 10 × 2с ≤ 3 req/s).
+
+**Результат (dry-run)**: 50/50 черновиков непустые за **3.8с** (~80мс/ответ); после явного «да» — 50/50 строк в логе (`sent=false, dry_run=true`); `exportWorkflowSafe`: `safeToPublish: true`.
+
+Файлы: [metrics-responder.json](metrics-responder.json), [workflow/wb-review-responder.json](workflow/wb-review-responder.json), [workflow/wb-responder-confirm.json](workflow/wb-responder-confirm.json).
+
+**Честные оговорки**: в этом окружении api.telegram.org недоступен (network-level) — approval доставлен в чат оператора, Telegram-ноды в графах присутствуют (disabled); 1 черновик дополнен операторским ретраем после пустого LLM-ответа; реальная публикация — при добавлении WB-токена в env (граф готов).
