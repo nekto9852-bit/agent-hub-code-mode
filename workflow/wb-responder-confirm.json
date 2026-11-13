@@ -1,0 +1,203 @@
+{
+  "id": "pooBWAs7FVs1B8E1",
+  "name": "WB Responder Confirm",
+  "description": null,
+  "active": false,
+  "activeVersionId": null,
+  "createdAt": "2026-11-13T16:59:45.446Z",
+  "updatedAt": "2026-11-13T21:08:06.371Z",
+  "isArchived": false,
+  "versionId": "2cceaf61-0d12-4a93-a5fa-82bb092877b1",
+  "versionCounter": 14,
+  "sourceWorkflowId": null,
+  "triggerCount": 1,
+  "nodes": [
+    {
+      "id": "wh2",
+      "name": "Webhook",
+      "webhookId": "a6a8b406-0b17-4baf-9905-6aea344b01dd",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        32,
+        304
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wb-responder-confirm",
+        "options": {}
+      }
+    },
+    {
+      "id": "dry2",
+      "name": "Dry Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        304
+      ],
+      "parameters": {
+        "jsCode": "// Node: Dry Log v2 (code, runOnceForAllItems) — WF2 stateless confirm\n// Input: { body: { answer, csv } } — csv is the drafts CSV text from the confirm request.\nvar src = $(\"Webhook\").first().json; var body = src.body || src;\nvar csvText = String(body.csv || \"\");\nvar lines = csvText.trim().split(\"\\n\");\nvar out = [];\nvar ts = new Date().toISOString();\nvar rows = [\"reviewId,draft,sent,dry_run,timestamp\"];\nvar empty = 0;\nfor (var i = 1; i < lines.length; i++) {\n  // format: \"reviewId\",\"text\",rating,\"draftAnswer\"\n  var m = lines[i].match(/^\"([^\"]*)\",\"((?:[^\"]|\"\")*)\",(\\d+),\"((?:[^\"]|\"\")*)\"$/);\n  if (!m) continue;\n  var draft = m[4].replace(/\"\"/g, '\"');\n  if (!draft.trim()) { empty++; continue; }\n  rows.push('\"' + m[1] + '\",\"' + draft.replace(/\"/g, '\"\"') + '\",false,true,' + ts);\n  out.push({ json: { reviewId: m[1], draftAnswer: draft } });\n}\nreturn [{ json: {\n  csv: rows.join(\"\\n\"),\n  total: out.length,\n  skippedEmpty: empty,\n  sent: 0,\n  dry_run: true,\n  mode: \"dry_run (WB_API_TOKEN not set)\"\n}}];\n"
+      }
+    },
+    {
+      "id": "cnv2",
+      "name": "Convert Log",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        304
+      ],
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "csv",
+        "options": {}
+      }
+    },
+    {
+      "id": "wr2",
+      "name": "Write Log CSV",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        304
+      ],
+      "parameters": {
+        "fileName": "C:/Users/User/Projects/wb-reviews-demo/data/responder_log.csv",
+        "options": {}
+      }
+    },
+    {
+      "id": "end2",
+      "name": "End",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        304
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "chk2",
+      "name": "Check Answer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Node: Check Answer (code, runOnceForAllItems) — replaces brittle IF for webhook body variants.\nvar body = $input.first().json.body;\nif (body === undefined || body === null) body = $input.first().json;\nvar answer = \"\";\ntry { answer = String(typeof body === \"string\" ? JSON.parse(body).answer : body.answer || \"\"); } catch (e) { answer = String(body || \"\"); }\nanswer = answer.toLowerCase().trim();\nif (answer.indexOf(\"да\") >= 0 || answer.indexOf(\"yes\") >= 0) {\n  return [{ json: { approved: true, answer: answer } }];\n}\nreturn [];\n"
+      }
+    },
+    {
+      "id": "telegram result3",
+      "name": "Telegram Result",
+      "webhookId": "0cbd8e59-1fd3-42f5-8e47-ea715509f8e5",
+      "disabled": true,
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1620,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$env.TELEGRAM_HOME_CHANNEL}}",
+        "text": "=WB Responder итог: {{ $('Dry Log').first().json.mode }} — всего {{ $('Dry Log').first().json.total }}, отправлено {{ $('Dry Log').first().json.sent }}.",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "RR5DeKtrRuDsKDe1"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Answer": {
+      "main": [
+        [
+          {
+            "node": "Dry Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dry Log": {
+      "main": [
+        [
+          {
+            "node": "Convert Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Log": {
+      "main": [
+        [
+          {
+            "node": "Write Log CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Log CSV": {
+      "main": [
+        [
+          {
+            "node": "Telegram Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Result": {
+      "main": [
+        [
+          {
+            "node": "End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "availableInMCP": true,
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": null,
+  "pinData": {},
+  "meta": null,
+  "tags": [],
+  "activeVersion": null
+}
