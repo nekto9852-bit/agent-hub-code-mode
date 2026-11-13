@@ -41,8 +41,31 @@
 ## Кейс: WB-отзывы
 
 - **Товар**: nmId=165462535 («Бандана хлопковая»), 10 611 отзывов, взято 100 с текстом.
-- **Пайплайн**: Webhook → HTTP (WB feedbacks API) → Code split → Polza (deepseek-v4-flash) → Code CSV → Write CSV → Telegram (отключён, для портфолио) → NoOp.
 - **Результат**: 8.1 сек, 100/100 строк с текстом: **похвала 76 / вопрос 24 / жалоба 0**.
+
+```mermaid
+flowchart LR
+    WH["Webhook<br/>POST /wb-reviews-demo"] --> WB["HTTP: WB feedbacks API<br/>публичный, без ключа"]
+    WB --> EX["Code: Extract 100<br/>только отзывы с текстом"]
+    EX --> LLM["HTTP: Polza LLM<br/>deepseek-v4-flash<br/>категория + тональность"]
+    LLM --> BC["Code: Build CSV<br/>строки + сводка"]
+    BC --> CF["Convert to File<br/>CSV"]
+    CF --> WF["Write File<br/>reviews_classified.csv"]
+    WF --> END["NoOp: End<br/>summary в execution data"]
+
+    BC -.-> TG["Telegram: сводка<br/>DISABLED"]
+    BC -.-> GS["Google Sheets<br/>DISABLED"]
+    NOTE["Sticky: включить после<br/>расшаривания Sheet / канала"]
+
+    classDef danger fill:#ffdddd,stroke:#cc0000,stroke-width:2px
+    classDef disabled fill:#f0f0f0,stroke:#999999,stroke-dasharray:5 5,color:#777777
+    classDef note fill:#fffbe6,stroke:#d4c95a
+    class WF danger
+    class TG,GS disabled
+    class NOTE note
+```
+
+**Легенда:** сплошные стрелки — активный путь (как исполнялся демо-прогон); пунктир — отключённые ветки (ноды Telegram и Google Sheets в демо не соединены с графом, включаются без изменения логики); красным выделен узел записи на диск (danger-действие — в конвейере Agent Hub проходит через confirm-гейт).
 
 ### 5 итераций ремонта (честно, с первопричинами)
 
