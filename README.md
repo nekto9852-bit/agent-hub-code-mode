@@ -79,6 +79,10 @@ flowchart LR
 
 Каждая итерация — реальный диагноз из логов, а не перебор. Итог: конвейер «аудит → ремонт → перепроверка» работает в бою.
 
+## Ядро
+
+Демо построено на [agent-hub-core-mcp](https://github.com/nekto9852-bit/agent-hub-core-mcp) — Code Mode MCP + конвейер агента + безопасность.
+
 ## Стек
 
 Hermes Agent (Python) · Code Mode MCP (Node.js, `@modelcontextprotocol/sdk`) · n8n 2.44 · Polza (deepseek-v4-flash) · Google Sheets (отключено) · Telegram (отключено)
