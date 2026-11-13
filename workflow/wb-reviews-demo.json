@@ -2,13 +2,13 @@
   "id": "u8w5m5wgB6SX9uvT",
   "name": "WB Reviews → LLM → CSV (Agent Hub demo)",
   "description": null,
-  "active": false,
-  "activeVersionId": null,
+  "active": true,
+  "activeVersionId": "1e89db0a-86a8-427f-85d6-797e34257792",
   "createdAt": "2026-11-13T14:51:22.367Z",
-  "updatedAt": "2026-11-13T15:50:34.993Z",
+  "updatedAt": "2026-11-13T16:32:40.184Z",
   "isArchived": false,
-  "versionId": "f3376151-0d78-468e-b44b-2c798a2ba722",
-  "versionCounter": 15,
+  "versionId": "1e89db0a-86a8-427f-85d6-797e34257792",
+  "versionCounter": 18,
   "sourceWorkflowId": null,
   "triggerCount": 1,
   "nodes": [
@@ -174,7 +174,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Bearer pza_REDACTED"
+              "value": "={{$env.POLZA_API_KEY}}"
             }
           ]
         }
@@ -297,5 +297,303 @@
   "pinData": null,
   "meta": null,
   "tags": [],
-  "activeVersion": null
+  "activeVersion": {
+    "versionId": "1e89db0a-86a8-427f-85d6-797e34257792",
+    "workflowId": "u8w5m5wgB6SX9uvT",
+    "nodes": [
+      {
+        "id": "69764c70678548318cf8faa54f13feac",
+        "name": "Webhook",
+        "webhookId": "f6408c82-b87f-45b2-b871-17d6dc524586",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [
+          0,
+          300
+        ],
+        "parameters": {
+          "path": "wb-reviews-demo",
+          "httpMethod": "POST",
+          "options": {}
+        }
+      },
+      {
+        "id": "bc1f49db5c1d4f838fe739c5afa5e32a",
+        "name": "Get WB Reviews",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          260,
+          300
+        ],
+        "parameters": {
+          "url": "https://feedbacks1.wb.ru/feedbacks/v1/115004617",
+          "options": {
+            "headers": {
+              "User-Agent": "Mozilla/5.0"
+            },
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "sendQuery": false,
+          "authentication": "none",
+          "method": "GET"
+        }
+      },
+      {
+        "id": "ed1af4422a7e4c96956240277e045797",
+        "name": "Extract 100",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          520,
+          300
+        ],
+        "parameters": {
+          "jsCode": "var fb = $input.first().json.feedbacks || [];\nvar out = [];\nfor (var i = 0; i < fb.length && out.length < 100; i++) {\n  var x = fb[i];\n  var tx = String(x.text || x.pros || x.cons || \"\").trim();\n  if (!tx) continue;\n  out.push({\n    text: tx,\n    rating: x.productValuation || 0,\n    date: x.createdDate || \"\",\n    author: (x.wbUserDetails && x.wbUserDetails.name) || \"\"\n  });\n}\nreturn out;\n"
+        }
+      },
+      {
+        "id": "cb4e87ad3ae04423a256a935ebfdbe95",
+        "name": "Build CSV",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1040,
+          300
+        ],
+        "parameters": {
+          "jsCode": "var items = $input.all();\nvar src = $(\"Extract 100\").all();\nvar rows = [\"text,rating,category,sentiment,date\"];\nvar cc = { p: 0, z: 0, v: 0 };\nvar sc = { pos: 0, neg: 0, neu: 0 };\nvar comp = [];\nfunction q(s) { return '\"' + String(s == null ? \"\" : s).replace(/\"/g, '\"\"') + '\"'; }\nfor (var idx = 0; idx < items.length; idx++) {\n  var j = items[idx].json;\n  var orig = (src[idx] && src[idx].json) || {};\n  var content = \"\";\n  if (j.choices && j.choices[0] && j.choices[0].message) content = String(j.choices[0].message.content || \"\");\n  var parts = content.split(\"|\");\n  var cat = (parts[0] || \"vopros\").toLowerCase().trim();\n  var sent = (parts[1] || \"neutral\").toLowerCase().trim();\n  if (cat.indexOf(\"pohvala\") >= 0) cc.p++; else if (cat.indexOf(\"zhaloba\") >= 0) cc.z++; else cc.v++;\n  if (sent.indexOf(\"positive\") >= 0) sc.pos++; else if (sent.indexOf(\"negative\") >= 0) sc.neg++; else sc.neu++;\n  var tx = String(orig.text || \"\");\n  rows.push(q(tx) + \",\" + (orig.rating || 0) + \",\" + q(cat) + \",\" + q(sent) + \",\" + q(orig.date || \"\"));\n  if (cat.indexOf(\"zhaloba\") >= 0 && tx.length > 10) comp.push(tx.substring(0, 100));\n}\nreturn [{ json: {\n  csv: rows.join(\"\\n\"),\n  summary: {\n    total: items.length,\n    categories: { pohvala: cc.p, zhaloba: cc.z, vopros: cc.v },\n    sentiments: { positive: sc.pos, negative: sc.neg, neutral: sc.neu },\n    top3_complaints: comp.slice(0, 3)\n  }\n} }];\n"
+        }
+      },
+      {
+        "id": "c23acd7c71c04ffe8b2535eb9deb8815",
+        "name": "End",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          1300,
+          300
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "fec87366e82a42a7b517cae6032d37f4",
+        "name": "Telegram",
+        "webhookId": "0f81be2d-3e74-4cdb-a8f3-40b9f26bbacd",
+        "disabled": true,
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1,
+        "position": [
+          1300,
+          -50
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "sendMessage",
+          "chatId": "={{$env.TELEGRAM_HOME_CHANNEL}}",
+          "text": "Done",
+          "additionalFields": {}
+        }
+      },
+      {
+        "id": "6501628bd8bf46fbb409bea316660c8d",
+        "name": "Google Sheets",
+        "disabled": true,
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4,
+        "position": [
+          1300,
+          50
+        ],
+        "parameters": {
+          "operation": "create",
+          "options": {}
+        }
+      },
+      {
+        "id": "3869c190d49d40479ef378d917a6c3dd",
+        "name": "Note",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1300,
+          160
+        ],
+        "parameters": {
+          "content": "Telegram+GS: enable after sharing",
+          "height": 80,
+          "width": 220
+        }
+      },
+      {
+        "id": "882a0c2c579b4ad7a6dc65f17b275bbc",
+        "name": "LLM Classify (Polza)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          780,
+          300
+        ],
+        "parameters": {
+          "url": "https://polza.ai/api/v1/chat/completions",
+          "method": "POST",
+          "authentication": "none",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": {
+            "model": "deepseek/deepseek-v4-flash",
+            "messages": [
+              {
+                "role": "system",
+                "content": "Output ONLY: category|sentiment, category=pohvala/zhaloba/vopros, sentiment=positive/negative/neutral"
+              },
+              {
+                "role": "user",
+                "content": "Classify: {{ $json.text }}"
+              }
+            ],
+            "max_tokens": 30,
+            "temperature": 0.1
+          },
+          "responseFormat": "json",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{$env.POLZA_API_KEY}}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "17252310a8d04403b304acd11da191ce",
+        "name": "Convert to File",
+        "type": "n8n-nodes-base.convertToFile",
+        "typeVersion": 1,
+        "position": [
+          1660,
+          300
+        ],
+        "parameters": {
+          "operation": "toText",
+          "sourceProperty": "csv"
+        }
+      },
+      {
+        "id": "4e3bc7814c30497d89ba4690368b0044",
+        "name": "Write File",
+        "type": "n8n-nodes-base.writeBinaryFile",
+        "typeVersion": 1,
+        "position": [
+          1880,
+          300
+        ],
+        "parameters": {
+          "operation": "write",
+          "fileName": "C:/Users/User/Projects/wb-reviews-demo/data/reviews_classified.csv",
+          "dataPropertyName": "data"
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Get WB Reviews",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get WB Reviews": {
+        "main": [
+          [
+            {
+              "node": "Extract 100",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract 100": {
+        "main": [
+          [
+            {
+              "node": "LLM Classify (Polza)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build CSV": {
+        "main": [
+          [
+            {
+              "node": "Convert to File",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "LLM Classify (Polza)": {
+        "main": [
+          [
+            {
+              "node": "Build CSV",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Convert to File": {
+        "main": [
+          [
+            {
+              "node": "Write File",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Write File": {
+        "main": [
+          [
+            {
+              "node": "End",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "Валерий Азаров",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-11-13T16:32:40.188Z",
+    "updatedAt": "2026-11-13T16:32:40.188Z",
+    "workflowPublishHistory": [
+      {
+        "id": 37,
+        "workflowId": "u8w5m5wgB6SX9uvT",
+        "versionId": "1e89db0a-86a8-427f-85d6-797e34257792",
+        "event": "activated",
+        "userId": "85205c6a-4ee6-4a28-be80-73a4ae6dcf15",
+        "createdAt": "2026-11-13T16:32:40.277Z"
+      }
+    ]
+  }
 }
