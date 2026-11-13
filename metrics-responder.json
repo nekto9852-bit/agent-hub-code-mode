@@ -1,11 +1,11 @@
 {
   "date": "2026-11-14",
   "feature": "WB Review Responder (human-in-the-loop answers)",
-  "mode": "dry_run (WB_API_TOKEN not set; real branch present in graph, auto-enables with token)",
+  "mode": "dry_run (WB_API_TOKEN not set). WF2 implements stateless dry-run confirm: after explicit operator approval an audit log is written with sent=false, dry_run=true; nothing is published to WB. Real-send branch is planned for the next iteration.",
   "product": "Бандана хлопковая (WB nmId=165462535, imtId=115004617)",
   "workflows": {
     "wf1": "WB Review Responder (Iq88PYTzHEZ0sWfW): webhook→feedbacks→filter50→prompts→Polza→pair→csv→[Telegram disabled]",
-    "wf2": "WB Responder Confirm (pooBWAs7FVs1B8E1): webhook{answer,csv}→check→drylog→csv→[Telegram disabled]"
+    "wf2": "WB Responder Confirm (pooBWAs7FVs1B8E1): webhook{answer,csv}→check→drylog→csv→[Telegram disabled] — stateless dry-run confirm only, no real-send branch in graph"
   },
   "reviews_fetched": 50,
   "drafts_generated": 50,
@@ -26,7 +26,7 @@
     "note": "drafts+log under 4s total; LLM ~80ms/review"
   },
   "llm": "Polza deepseek/deepseek-v4-flash (max_tokens 150, temp 0.3)",
-  "rate_limit_plan": "real branch: SplitInBatches(10)+Wait 2s = under 3 req/s",
+  "rate_limit_plan": "planned next iteration: real-send branch with SplitInBatches(10)+Wait 2s = under 3 req/s. NOT present in the current WF2 graph.",
   "code_mode": {
     "verify_chain": "5 setNodeCode + 5 verifyNodeCode match:true",
     "exec_log": "exec.log records create/verify/activate"
